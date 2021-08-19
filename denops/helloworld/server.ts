@@ -9,6 +9,9 @@ export function create_index_html(text: String) {
     </head>
     <body>
         <link rel="stylesheet" href="/css/style.css" type="text/css" media="screen" title="no title" charset="utf-8">
+        <script src="/js/websocket.js" charset="utf-8"></script>
+        <div id="eventType"></div>
+        <div id="dispMsg"></div>
         <div id="preview">
             ${text}
         </div>

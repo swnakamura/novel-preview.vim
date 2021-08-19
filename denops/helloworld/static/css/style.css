@@ -2,13 +2,6 @@ html{
     background-color: #161821;
 }
 body {
-    background-color: #161821;
-    color: #ccc;
-    background-image: repeating-linear-gradient( #333, #333 1px, transparent 1px, transparent 1cm),
-                      repeating-linear-gradient( to right, #333, #333 1px, transparent 1px, transparent 1.5cm);
-    background-repeat: repeat-x;
-    background-position: right;
-    overflow-x:visible;   /* これは見た目的には縦 */
 }
 div#preview {
     -epub-writing-mode: vertical-rl;
@@ -18,11 +11,17 @@ div#preview {
 
     font-size: 2.5vh;
     width: 100%;
-    height: 99%;
+    height: 98.5%;
     margin: 0.5% 0 0.5%;
     font-family: "Hiragino Mincho Pro", "游明朝", "YuMincho", serif;
 
+    background-image: repeating-linear-gradient( to left, #333, #333 1px, transparent 1px, transparent 3.75vh);
     overflow-y:hidden;   /* これは見た目的には横 */
+    background-attachment:local;
+
+    background-color: #161821;
+    color: #ccc;
+    overflow-x:visible;   /* これは見た目的には縦 */
 }
 p.honbun {
     margin:0;

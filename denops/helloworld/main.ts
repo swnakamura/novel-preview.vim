@@ -6,6 +6,7 @@ import {
 } from "https://deno.land/x/servest@v1.3.1/mod.ts";
 import { fromFileUrl } from "https://deno.land/std@0.105.0/path/mod.ts";
 import { create_index_html } from "./server.ts";
+import type { WebSocket } from "https://deno.land/std@0.105.0/ws/mod.ts";
 
 const app = createApp();
 
@@ -30,6 +31,12 @@ app.use(serveStatic(misc_root_directory));
 app.listen({ port: 8899 });
 
 export async function main(denops: Denops): Promise<void> {
+  // denopsコマンドを定義
+  await denops.cmd(
+    `command! Up call denops#request('${denops.name}', 'updateServer', [])`,
+  );
+
+  // dispatcherを定義
   denops.dispatcher = {
     async echo(text: unknown): Promise<unknown> {
       ensureString(text);
@@ -48,9 +55,23 @@ export async function main(denops: Denops): Promise<void> {
       return await Promise.resolve();
     },
   };
-  await denops.cmd(
-    `command! Up call denops#request('${denops.name}', 'updateServer', [])`,
-  );
+
+  // websocketサーバを立てる
+  const ws_app = createApp();
+  ws_app.ws("/ws", handleHandShake);
+  ws_app.listen({ port: 8900 });
+
+  function handleHandShake(sock: WebSocket) {
+    async function handleMessage(sock: WebSocket) {
+      for await (const msg of sock) {
+        if (typeof msg === "string") {
+          sock.send(msg);
+          // await denops.cmd(`echo WOW`);
+        }
+      }
+    }
+    handleMessage(sock);
+  }
 }
 
 function pixivFormatter(x: string) {
