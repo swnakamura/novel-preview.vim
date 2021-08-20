@@ -10,7 +10,11 @@ conn.onmessage = function (event) {
     previewDiv.insertAdjacentHTML("afterbegin", message["content"]);
     // let colPos = message["getCurPos"][2];
     console.log(message["getCurPos"]);
-    document.getElementById("cursor").scrollIntoView({ behavior: "smooth" });
+    document.getElementById("cursor").scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+      inline: "center",
+    });
   }
 };
 
