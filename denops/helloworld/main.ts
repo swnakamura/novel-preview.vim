@@ -98,9 +98,6 @@ function addCursorSpan(
     bufferContentList[linNum - 1] = targetLine.substr(0, colNum) +
       '<span id="cursor">' +
       targetLine[colNum] + "</span>" + targetLine.substr(colNum + 1);
-  } else if (targetLine === "") {
-    // 空行
-    bufferContentList[linNum - 1] = '<span id="cursor">　</span>';
   } else {
     bufferContentList[linNum - 1] = targetLine + '<span id="cursor">　</span>';
   }
@@ -113,9 +110,9 @@ function pixivFormatter(x: string) {
     /\[\[rb:(.*) > (.*)\]\]/g,
     "<ruby>$1<rt>$2</rt></ruby>",
   );
-  // 空行が無視されてしまうので、改行を加えることで空行にする
+  // 空行が無視されてしまうので、全角空白を加えることで空行にする
   if (x === "") {
-    x = "<br>";
+    x = "　";
   }
   return x;
 }
