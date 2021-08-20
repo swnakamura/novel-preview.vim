@@ -23,3 +23,19 @@ div#preview {
 p.honbun {
     margin:0;
 }
+
+span#cursor {
+    background-color: rgb(197, 197, 197);
+    animation-duration: 0.5s;
+    animation-name: cursorAnimation;
+    animation-iteration-count: infinite;
+}
+@keyframes cursorAnimation {
+    from {
+        background-color: rgba(66,66,66,0);
+    }
+
+    to {
+        background-color: rgba(125,125,125,0.7);
+    }
+}

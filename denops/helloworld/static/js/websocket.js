@@ -4,11 +4,16 @@ conn.onopen = function () {
 };
 conn.onmessage = function (event) {
   if (event.data !== "Unchanged") {
-    document.getElementById("preview").innerHTML = event.data;
+    let message = JSON.parse(event.data);
+    let previewDiv = document.getElementById("preview");
+    previewDiv.textContent = "";
+    previewDiv.insertAdjacentHTML("afterbegin", message["content"]);
+    // let colPos = message["getCurPos"][2];
+    console.log(message["getCurPos"]);
+    document.getElementById("cursor").scrollIntoView({ behavior: "smooth" });
   }
-console.log(event.data);
 };
 
 window.setInterval(() => {
   conn.send("HI");
-}, 3000);
+}, 300);
