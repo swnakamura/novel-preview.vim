@@ -5,7 +5,6 @@ import {
   serveStatic,
 } from "https://deno.land/x/servest@v1.3.1/mod.ts";
 import { fromFileUrl } from "https://deno.land/std@0.105.0/path/mod.ts";
-import { create_index_html } from "./server.ts";
 import type { WebSocket } from "https://deno.land/std@0.105.0/ws/mod.ts";
 
 export async function main(denops: Denops): Promise<void> {
