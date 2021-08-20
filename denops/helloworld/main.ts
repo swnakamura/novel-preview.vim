@@ -84,5 +84,9 @@ function pixivFormatter(x: string) {
     /\[\[rb:(.*) > (.*)\]\]/g,
     "<ruby>$1<rt>$2</rt></ruby>",
   );
+  // 空行なら実際に空行にする
+  if (x === "") {
+    x = "<br>";
+  }
   return x;
 }
