@@ -3,8 +3,10 @@ conn.onopen = function () {
   console.log("connection opened!");
 };
 conn.onmessage = function (event) {
-  document.getElementById("preview").innerHTML = event.data;
-  console.log(event.data);
+  if (event.data !== "Unchanged") {
+    document.getElementById("preview").innerHTML = event.data;
+  }
+console.log(event.data);
 };
 
 window.setInterval(() => {

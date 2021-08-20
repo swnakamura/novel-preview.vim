@@ -47,6 +47,8 @@ export async function main(denops: Denops): Promise<void> {
       ws_app.ws("/ws", handleHandShake);
       ws_app.listen({ port: 8900 });
 
+      let previousBufferContent = "";
+
       function handleHandShake(sock: WebSocket) {
         async function handleMessage(sock: WebSocket) {
           for await (const msg of sock) {
@@ -60,7 +62,12 @@ export async function main(denops: Denops): Promise<void> {
               ).join(
                 "",
               );
-              sock.send(bufferContent);
+              if (bufferContent !== previousBufferContent) {
+                sock.send(bufferContent);
+              } else {
+                sock.send("Unchanged");
+              }
+              previousBufferContent = bufferContent;
             }
           }
         }
