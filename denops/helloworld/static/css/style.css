@@ -1,7 +1,6 @@
 html{
     background-color: #161821;
-}
-body {
+    color: #ccc;
 }
 div#preview {
     -epub-writing-mode: vertical-rl;
@@ -19,8 +18,6 @@ div#preview {
     overflow-y:hidden;   /* これは見た目的には横 */
     background-attachment:local;
 
-    background-color: #161821;
-    color: #ccc;
     overflow-x:visible;   /* これは見た目的には縦 */
 }
 p.honbun {
