@@ -7,6 +7,16 @@ import {
 import { fromFileUrl } from "https://deno.land/std@0.105.0/path/mod.ts";
 import type { WebSocket } from "https://deno.land/std@0.105.0/ws/mod.ts";
 
+// サーバを立てる
+const app = createApp();
+const ws_app = createApp();
+
+// 最後に通信してきたクライアントを覚えておくための変数
+let lastSocket: WebSocket | undefined = undefined;
+
+// 最後に送信したメッセージを覚えておくための変数
+let previousMessage = {};
+
 export async function main(denops: Denops): Promise<void> {
   // denopsコマンドを定義
   await denops.cmd(
@@ -20,9 +30,6 @@ export async function main(denops: Denops): Promise<void> {
       return await Promise.resolve(text);
     },
     async startServer(): Promise<unknown> {
-      // サーバを立てる
-      const app = createApp();
-
       // index.htmlにアクセスされたときだけはbodyHTMLを返す
       const index_url = new URL("./index.html", import.meta.url);
       const bodyHTML = Deno.readTextFileSync(fromFileUrl(index_url));
@@ -42,35 +49,19 @@ export async function main(denops: Denops): Promise<void> {
       app.use(serveStatic(misc_root_directory));
       app.listen({ port: 8899 });
 
-      // websocketサーバを立てる
-      const ws_app = createApp();
+      // websocketサーバに飛んできたメッセージに返信する
       ws_app.ws("/ws", handleHandShake);
       ws_app.listen({ port: 8900 });
 
-      let previousMessage = {};
+      // ページを開く
+      denops.cmd("!firefox localhost:8899");
 
       function handleHandShake(sock: WebSocket) {
         async function handleMessage(sock: WebSocket) {
+          lastSocket = sock;
           for await (const msg of sock) {
             if (typeof msg === "string") {
-              let bufferContentList =
-                (await denops.eval("getline(1, '$')")) as Array<string>;
-              let curPos = await denops.eval("getpos('.')") as Array<number>;
-              curPos[2] = await denops.eval(
-                `charidx(getline('.'), ${curPos[2]})`,
-              ) as number;
-
-              bufferContentList = addCursorSpan(bufferContentList, curPos);
-              var bufferContent = bufferContentList.map((x) =>
-                '<p class="honbun">' + pixivFormatter(x) + "</p>"
-              ).join(
-                "",
-              );
-
-              var message = JSON.stringify({
-                content: bufferContent,
-                getCurPos: curPos,
-              });
+              let message = await generateMessage(denops);
               if (message !== previousMessage) {
                 sock.send(message);
               } else {
@@ -85,6 +76,29 @@ export async function main(denops: Denops): Promise<void> {
       return await Promise.resolve();
     },
   };
+}
+
+async function generateMessage(denops: Denops) {
+  let bufferContentList = (await denops.eval("getline(1, '$')")) as Array<
+    string
+  >;
+  let curPos = await denops.eval("getpos('.')") as Array<number>;
+  curPos[2] = await denops.eval(
+    `charidx(getline('.'), ${curPos[2]})`,
+  ) as number;
+
+  bufferContentList = addCursorSpan(bufferContentList, curPos);
+  var bufferContent = bufferContentList.map((x) =>
+    '<p class="honbun">' + pixivFormatter(x) + "</p>"
+  ).join(
+    "",
+  );
+
+  var message = JSON.stringify({
+    content: bufferContent,
+    getCurPos: curPos,
+  });
+  return message;
 }
 
 function addCursorSpan(
