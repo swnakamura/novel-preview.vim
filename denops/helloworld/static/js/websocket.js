@@ -1,4 +1,4 @@
-var conn = new WebSocket("ws://localhost:8900/ws");
+var conn = new WebSocket("ws://localhost:8899/ws");
 conn.onopen = function () {
   console.log("connection opened!");
 };

@@ -7,12 +7,8 @@ import {
 import { fromFileUrl } from "https://deno.land/std@0.105.0/path/mod.ts";
 import type { WebSocket } from "https://deno.land/std@0.105.0/ws/mod.ts";
 
-// サーバを立てる
-const app = createApp();
-const ws_app = createApp();
-
 // 最後に通信してきたクライアントを覚えておくための変数
-// このクライアントのみに返信するので、タブやウィンドウを複数開くと一つにしか返信されない
+// このクライアントのみに返信するので、タブやウィンドウを複数開くと一つにしか返信されないがこれは仕様
 let lastSocket: WebSocket | undefined = undefined;
 
 // 最後に送信したメッセージを覚えておくための変数
@@ -34,6 +30,9 @@ export async function main(denops: Denops): Promise<void> {
       return await Promise.resolve(text);
     },
     async startServer(): Promise<unknown> {
+      // サーバを立てる
+      const app = createApp();
+
       // index.htmlにアクセスされたときだけはbodyHTMLを返す
       const index_url = new URL("./index.html", import.meta.url);
       const bodyHTML = Deno.readTextFileSync(fromFileUrl(index_url));
@@ -46,7 +45,6 @@ export async function main(denops: Denops): Promise<void> {
           body: bodyHTML,
         });
       });
-
       // それ以外のときはstaticの中身をそのまま返す
       let misc_url = new URL("./static", import.meta.url);
       let misc_root_directory = fromFileUrl(misc_url);
@@ -54,8 +52,7 @@ export async function main(denops: Denops): Promise<void> {
       app.listen({ port: 8899 });
 
       // websocketサーバに飛んできたメッセージに返信する
-      ws_app.ws("/ws", handleHandShake);
-      ws_app.listen({ port: 8900 });
+      app.ws("/ws", handleHandShake);
 
       // ページを開く
       denops.cmd("!firefox localhost:8899");
