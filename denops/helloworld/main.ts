@@ -12,6 +12,7 @@ const app = createApp();
 const ws_app = createApp();
 
 // 最後に通信してきたクライアントを覚えておくための変数
+// このクライアントのみに返信するので、タブやウィンドウを複数開くと一つにしか返信されない
 let lastSocket: WebSocket | undefined = undefined;
 
 // 最後に送信したメッセージを覚えておくための変数
@@ -20,7 +21,10 @@ let previousMessage = {};
 export async function main(denops: Denops): Promise<void> {
   // denopsコマンドを定義
   await denops.cmd(
-    `command! Up call denops#request('${denops.name}', 'startServer', [])`,
+    `command! NovelPreviewUp call denops#request('${denops.name}', 'startServer', [])`,
+  );
+  await denops.cmd(
+    `command! NovelPreviewSend call denops#request('${denops.name}', 'sendBuffer', [])`,
   );
 
   // dispatcherを定義
@@ -72,6 +76,15 @@ export async function main(denops: Denops): Promise<void> {
           }
         }
         handleMessage(sock);
+      }
+      return await Promise.resolve();
+    },
+    async sendBuffer(): Promise<unknown> {
+      if (lastSocket !== undefined) {
+        let message = await generateMessage(denops);
+        // これはvim側から能動的に発生させるので、messageは必ず変わっているはず
+        lastSocket.send(message);
+        previousMessage = message;
       }
       return await Promise.resolve();
     },

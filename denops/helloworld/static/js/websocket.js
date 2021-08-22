@@ -20,4 +20,4 @@ conn.onmessage = function (event) {
 
 window.setInterval(() => {
   conn.send("HI");
-}, 300);
+}, 10000);
