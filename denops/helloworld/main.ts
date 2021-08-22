@@ -13,8 +13,8 @@ import type { WebSocket } from "https://deno.land/std@0.105.0/ws/mod.ts";
 let lastSocket: WebSocket | undefined = undefined;
 
 interface Content {
-  bufferLines: null | Array<string>;
-  curPos: null | Array<number>;
+  bufferLines: Array<string>;
+  curPos: Array<number>;
 }
 
 interface Message {
@@ -24,8 +24,8 @@ interface Message {
 
 // 最後に送信したメッセージを覚えておくための変数
 let previousContent: Content = {
-  bufferLines: null,
-  curPos: null,
+  bufferLines: [],
+  curPos: [],
 };
 
 export async function main(denops: Denops): Promise<void> {
@@ -77,7 +77,7 @@ export async function main(denops: Denops): Promise<void> {
           lastSocket = sock;
           for await (const msg of sock) {
             if (typeof msg === "string") {
-              await sendMessage(denops, previousContent);
+              await sendMessage(denops);
             }
           }
         }
@@ -87,27 +87,29 @@ export async function main(denops: Denops): Promise<void> {
     },
     async sendBuffer(): Promise<unknown> {
       if (lastSocket !== undefined) {
-        await sendMessage(denops, previousContent);
+        await sendMessage(denops);
       }
       return await Promise.resolve();
     },
   };
 }
 
-async function sendMessage(denops: Denops, previousContent: Content) {
+function arrayEquals(a: Array<any>, b: Array<any>) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+async function sendMessage(denops: Denops) {
   let bufferLines = (await denops.eval("getline(1, '$')")) as Array<
     string
   >;
   let curPos = await denops.eval("getpos('.')") as Array<number>;
   curPos[2] = await denops.eval(
     `charidx(getline('.'), ${curPos[2]})`,
-  ) as number;
-
-  bufferLines = addCursorSpan(bufferLines, curPos);
+  ) as number; // マルチバイト文字の場所を正しく得る
 
   let content: Content;
   let message: Message;
-  if (bufferLines !== previousContent["bufferLines"]) {
+  if (!arrayEquals(bufferLines, previousContent["bufferLines"])) {
     // 前回とはバッファの内容が異なる場合、全部の情報を送信して画面を全書き換えする
     content = {
       bufferLines: bufferLines,
@@ -118,10 +120,10 @@ async function sendMessage(denops: Denops, previousContent: Content) {
       "isChanged": "buffer",
       "content": content,
     };
-  } else if (curPos != previousContent["curPos"]) {
+  } else if (!arrayEquals(curPos, previousContent["curPos"])) {
     // バッファの内容は同じだがカーソルの場所だけが異なる場合、カーソルの新しい位置だけ送れば良い
     content = {
-      bufferLines: null,
+      bufferLines: [],
       curPos: curPos,
     };
     // previousContentはcurPosだけ更新
@@ -132,7 +134,7 @@ async function sendMessage(denops: Denops, previousContent: Content) {
     };
   } else {
     // 何も違わない場合、isChangedをnullにする
-    // contentを送る必要もない
+    // 変化していないので、contentを送る必要はない
     message = {
       "isChanged": null,
       "content": null,
@@ -141,34 +143,4 @@ async function sendMessage(denops: Denops, previousContent: Content) {
   if (lastSocket !== undefined) {
     lastSocket.send(JSON.stringify(message));
   }
-}
-
-function addCursorSpan(
-  bufferContentList: Array<string>,
-  curPos: Array<number>,
-) {
-  let linNum = curPos[1];
-  let colNum = curPos[2];
-  var targetLine = bufferContentList[linNum - 1];
-  if (targetLine[colNum] !== undefined) {
-    bufferContentList[linNum - 1] = targetLine.substr(0, colNum) +
-      '<span id="cursor">' +
-      targetLine[colNum] + "</span>" + targetLine.substr(colNum + 1);
-  } else {
-    bufferContentList[linNum - 1] = targetLine + '<span id="cursor">　</span>';
-  }
-  return bufferContentList;
-}
-
-function pixivFormatter(x: string) {
-  //ルビ記法をHTMLに変換
-  x = x.replace(
-    /\[\[rb:(.*) > (.*)\]\]/g,
-    "<ruby>$1<rt>$2</rt></ruby>",
-  );
-  // 空行が無視されてしまうので、全角空白を加えることで空行にする
-  if (x === "") {
-    x = "　";
-  }
-  return x;
 }
