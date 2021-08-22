@@ -9,15 +9,29 @@ import type { WebSocket } from "https://deno.land/std@0.105.0/ws/mod.ts";
 
 // 最後に通信してきたクライアントを覚えておくための変数
 // このクライアントのみに返信するので、タブやウィンドウを複数開くと一つにしか返信されないがこれは仕様
+// クソ雑実装だが自分しか使わないのでまあいいだろう
 let lastSocket: WebSocket | undefined = undefined;
 
+interface Content {
+  bufferLines: null | Array<string>;
+  curPos: null | Array<number>;
+}
+
+interface Message {
+  isChanged: null | string;
+  content: null | Content;
+}
+
 // 最後に送信したメッセージを覚えておくための変数
-let previousMessage = {};
+let previousContent: Content = {
+  bufferLines: null,
+  curPos: null,
+};
 
 export async function main(denops: Denops): Promise<void> {
   // denopsコマンドを定義
   await denops.cmd(
-    `command! NovelPreviewUp call denops#request('${denops.name}', 'startServer', [])`,
+    `command! NovelPreviewStartServer call denops#request('${denops.name}', 'startServer', [])`,
   );
   await denops.cmd(
     `command! NovelPreviewSend call denops#request('${denops.name}', 'sendBuffer', [])`,
@@ -63,13 +77,7 @@ export async function main(denops: Denops): Promise<void> {
           lastSocket = sock;
           for await (const msg of sock) {
             if (typeof msg === "string") {
-              let message = await generateMessage(denops);
-              if (message !== previousMessage) {
-                sock.send(message);
-              } else {
-                sock.send("Unchanged");
-              }
-              previousMessage = message;
+              await sendMessage(denops, previousContent);
             }
           }
         }
@@ -79,18 +87,15 @@ export async function main(denops: Denops): Promise<void> {
     },
     async sendBuffer(): Promise<unknown> {
       if (lastSocket !== undefined) {
-        let message = await generateMessage(denops);
-        // これはvim側から能動的に発生させるので、messageは必ず変わっているはず
-        lastSocket.send(message);
-        previousMessage = message;
+        await sendMessage(denops, previousContent);
       }
       return await Promise.resolve();
     },
   };
 }
 
-async function generateMessage(denops: Denops) {
-  let bufferContentList = (await denops.eval("getline(1, '$')")) as Array<
+async function sendMessage(denops: Denops, previousContent: Content) {
+  let bufferLines = (await denops.eval("getline(1, '$')")) as Array<
     string
   >;
   let curPos = await denops.eval("getpos('.')") as Array<number>;
@@ -98,18 +103,44 @@ async function generateMessage(denops: Denops) {
     `charidx(getline('.'), ${curPos[2]})`,
   ) as number;
 
-  bufferContentList = addCursorSpan(bufferContentList, curPos);
-  var bufferContent = bufferContentList.map((x) =>
-    '<p class="honbun">' + pixivFormatter(x) + "</p>"
-  ).join(
-    "",
-  );
+  bufferLines = addCursorSpan(bufferLines, curPos);
 
-  var message = JSON.stringify({
-    content: bufferContent,
-    getCurPos: curPos,
-  });
-  return message;
+  let content: Content;
+  let message: Message;
+  if (bufferLines !== previousContent["bufferLines"]) {
+    // 前回とはバッファの内容が異なる場合、全部の情報を送信して画面を全書き換えする
+    content = {
+      bufferLines: bufferLines,
+      curPos: curPos,
+    };
+    previousContent = content;
+    message = {
+      "isChanged": "buffer",
+      "content": content,
+    };
+  } else if (curPos != previousContent["curPos"]) {
+    // バッファの内容は同じだがカーソルの場所だけが異なる場合、カーソルの新しい位置だけ送れば良い
+    content = {
+      bufferLines: null,
+      curPos: curPos,
+    };
+    // previousContentはcurPosだけ更新
+    previousContent["curPos"] = curPos;
+    message = {
+      "isChanged": "cursor",
+      "content": content,
+    };
+  } else {
+    // 何も違わない場合、isChangedをnullにする
+    // contentを送る必要もない
+    message = {
+      "isChanged": null,
+      "content": null,
+    };
+  }
+  if (lastSocket !== undefined) {
+    lastSocket.send(JSON.stringify(message));
+  }
 }
 
 function addCursorSpan(

@@ -4,10 +4,19 @@ conn.onopen = function () {
 };
 conn.onmessage = function (event) {
   if (event.data !== "Unchanged") {
-    let message = JSON.parse(event.data);
-    let previewDiv = document.getElementById("preview");
-    previewDiv.textContent = "";
-    previewDiv.insertAdjacentHTML("afterbegin", message["content"]);
+    const message = JSON.parse(event.data);
+    const isChanged = message["isChanged"];
+    if (isChanged === "buffer") {
+      const content = message["content"];
+      const bufferLines = content["bufferLines"];
+      let previewDiv = document.getElementById("preview");
+      previewDiv.textContent = "";
+      previewDiv.insertAdjacentHTML("afterbegin", bufferLines);
+    } else if (isChanged === "cursor") {
+      let previewDiv = document.getElementById("preview");
+      previewDiv.textContent = "";
+      previewDiv.insertAdjacentHTML("afterbegin", message["content"]);
+    }
     // let colPos = message["getCurPos"][2];
     console.log(message["getCurPos"]);
     document.getElementById("cursor").scrollIntoView({
@@ -19,5 +28,5 @@ conn.onmessage = function (event) {
 };
 
 window.setInterval(() => {
-  conn.send("HI");
+  conn.send("Send me buffer");
 }, 10000);
