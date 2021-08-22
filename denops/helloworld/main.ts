@@ -55,7 +55,8 @@ export async function main(denops: Denops): Promise<void> {
       app.ws("/ws", handleHandShake);
 
       // ページを開く
-      denops.cmd("!firefox localhost:8899");
+      let browser = await denops.eval(`get(environ(), 'BROWSER', 'firefox')`);
+      denops.cmd(`!${browser} localhost:8899`);
 
       function handleHandShake(sock: WebSocket) {
         async function handleMessage(sock: WebSocket) {
