@@ -87,7 +87,11 @@ export async function main(denops: Denops): Promise<void> {
     },
     async sendBuffer(): Promise<unknown> {
       if (lastSocket !== undefined) {
-        await sendMessage(denops);
+        try {
+          await sendMessage(denops);
+        } catch (error) {
+          console.error(error);
+        }
       }
       return await Promise.resolve();
     },
