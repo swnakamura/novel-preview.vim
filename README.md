@@ -1,5 +1,7 @@
 **novel_preview.vim**
 
+https://user-images.githubusercontent.com/30687489/137055106-c59e20e6-75df-4660-8335-59358e75cda2.mp4
+
 # 概要
 
 Vimの現在のバッファの中身をブラウザに縦書き1行40文字でプレビューします。
