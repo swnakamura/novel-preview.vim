@@ -40,9 +40,11 @@ function renderPreview(
 ) {
   let bufferContentList = JSON.parse(JSON.stringify(bufferLines)); // deep copy
 
-  const bufferContent = bufferContentList.map((x, i) =>
-    `<p class="honbun" id="line${i}">` + pixivFormatter(x) + "</p>"
-  ).join("");
+  const bufferContent =
+    bufferContentList.map((x, i) =>
+      `<p class="honbun" id="line${i}">` + pixivFormatter(x) + "</p>"
+    ).join("") +
+    "<p>　</p>".repeat(15); // add many endline for viewing
 
   return bufferContent;
 }
@@ -64,9 +66,18 @@ function pixivFormatter(x) {
     "――",
     "──",
   );
+  // ！？を1文字に
+  x = x.replace(
+    /！？/g,
+    "⁉",
+  );
   // 空行が無視されてしまうので、全角空白を加えることで空行にする
   if (x === "") {
     x = "　";
+  }
+  // //でスタートする行は消す
+  if (x.startsWith("//") || x.startsWith("　//")) {
+    x = "";
   }
   return x;
 }
