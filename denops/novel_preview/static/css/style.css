@@ -19,6 +19,7 @@ div#preview {
     background-attachment:local;
 
     overflow-x:visible;   /* これは見た目的には縦 */
+    line-height:1.5em;
 }
 p.honbun {
     margin:0;

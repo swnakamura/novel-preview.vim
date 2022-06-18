@@ -51,7 +51,7 @@ function renderPreview(
 function pixivFormatter(x) {
   //ルビ記法をHTMLに変換
   x = x.replace(
-    /\[\[rb:(\S*) *> *(\S*)\]\]/g,
+    /\[\[rb:(\S*?) *> *(\S*?)\]\]/g,
     "<ruby>$1<rt>$2</rt></ruby>",
   );
   // newpageをわかりやすく示す
@@ -63,7 +63,7 @@ function pixivFormatter(x) {
   );
   // ダッシュを罫線に
   x = x.replace(
-    "――",
+    /――/g,
     "──",
   );
   // ！？を1文字に
