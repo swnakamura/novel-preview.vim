@@ -11,3 +11,5 @@ function! UpdateEditDistance()
         let s:distance_cache = 'not ready yet'
     endtry
 endfunction
+
+command! NovelPreviewAutoSend autocmd BufWrite,CursorMoved,TextChangedI <buffer> NovelPreviewSend
