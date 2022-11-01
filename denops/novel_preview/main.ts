@@ -74,6 +74,7 @@ export async function main(denops: Denops): Promise<void> {
       // let browser = await denops.eval(`get(environ(), 'BROWSER', 'firefox')`);
       // denops.cmd(`!${browser} localhost:8899`);
 
+      // 向こうから通信があったとき
       function handleHandShake(sock: WebSocket) {
         async function handleMessage(sock: WebSocket) {
           lastSocket = sock;
@@ -88,6 +89,7 @@ export async function main(denops: Denops): Promise<void> {
       return await Promise.resolve();
     },
     async sendBuffer(): Promise<unknown> {
+      // こちらから送信するとき
       if (lastSocket !== undefined) {
         try {
           await sendMessage(denops);
@@ -139,8 +141,7 @@ async function sendMessage(denops: Denops) {
       "content": content,
     };
   } else {
-    // 何も違わない場合、isChangedをnullにする
-    // 変化していないので、contentを送る必要はない
+    // 何も違わない場合
     message = {
       "isChanged": null,
       "content": null,
