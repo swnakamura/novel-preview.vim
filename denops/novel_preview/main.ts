@@ -1,5 +1,10 @@
 import { Denops } from "https://deno.land/x/denops_std@v1.0.0/mod.ts";
 import { ensureString } from "https://deno.land/x/unknownutil@v1.0.0/mod.ts";
+export * as vars from "https://deno.land/x/denops_std@v3.9.1/variable/mod.ts";
+export * as helper from "https://deno.land/x/denops_std@v3.9.1/helper/mod.ts";
+export * as autocmd from "https://deno.land/x/denops_std@v3.9.1/autocmd/mod.ts";
+export * as fn from "https://deno.land/x/denops_std@v3.9.1/function/mod.ts";
+export * as opts from "https://deno.land/x/denops_std@v3.9.1/option/mod.ts";
 import {
   createApp,
   serveStatic,
@@ -20,6 +25,7 @@ interface Content {
 interface Message {
   isChanged: null | string;
   content: null | Content;
+  fontsize: null| string;
 }
 
 // 最後に送信したメッセージを覚えておくための変数
@@ -80,7 +86,7 @@ export async function main(denops: Denops): Promise<void> {
           lastSocket = sock;
           for await (const msg of sock) {
             if (typeof msg === "string") {
-              await sendMessage(denops);
+              await sendContentMessage(denops);
             }
           }
         }
@@ -92,7 +98,7 @@ export async function main(denops: Denops): Promise<void> {
       // こちらから送信するとき
       if (lastSocket !== undefined) {
         try {
-          await sendMessage(denops);
+          await sendContentMessage(denops);
         } catch (error) {
           console.error(error);
         }
@@ -102,7 +108,8 @@ export async function main(denops: Denops): Promise<void> {
   };
 }
 
-async function sendMessage(denops: Denops) {
+// Content = (cursor position, 本文)が変わったというメッセージを送信
+async function sendContentMessage(denops: Denops) {
   let bufferLines = (await denops.eval("getline(1, '$')")) as Array<
     string
   >;
