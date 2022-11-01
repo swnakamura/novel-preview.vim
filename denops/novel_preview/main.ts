@@ -102,10 +102,6 @@ export async function main(denops: Denops): Promise<void> {
   };
 }
 
-function arrayEquals(a: Array<any>, b: Array<any>) {
-  return JSON.stringify(a) === JSON.stringify(b);
-}
-
 async function sendMessage(denops: Denops) {
   let bufferLines = (await denops.eval("getline(1, '$')")) as Array<
     string
@@ -117,7 +113,7 @@ async function sendMessage(denops: Denops) {
 
   let content: Content;
   let message: Message;
-  if (!arrayEquals(bufferLines, previousContent["bufferLines"])) {
+  if (bufferLines.join()!==previousContent["bufferLines"].join()) {
     // 前回とはバッファの内容が異なる場合、全部の情報を送信して画面を全書き換えする
     content = {
       bufferLines: bufferLines,
@@ -128,7 +124,7 @@ async function sendMessage(denops: Denops) {
       "isChanged": "buffer",
       "content": content,
     };
-  } else if (!arrayEquals(curPos, previousContent["curPos"])) {
+  } else if (curPos.join()!== previousContent["curPos"].join()) {
     // バッファの内容は同じだがカーソルの場所だけが異なる場合、カーソルの新しい位置だけ送れば良い
     content = {
       bufferLines: [],
