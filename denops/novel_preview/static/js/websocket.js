@@ -8,9 +8,12 @@ conn.onmessage = function (event) {
     const message = JSON.parse(event.data);
     const isChanged = message["isChanged"];
     console.log(isChanged);
-    const content_ = message["content"];
     let renderedPreviewHTML = null;
+    if (isChanged === null) {
+      return;
+    }
     if (isChanged === "buffer") {
+      const content_ = message["content"];
       // bufferの内容が変わっていた場合、送られてきた最新のバッファの内容でHTMLの内容を更新する
       bufferLines = content_["bufferLines"];
       renderedPreviewHTML = renderPreview(bufferLines);
@@ -18,10 +21,14 @@ conn.onmessage = function (event) {
       previewDiv.textContent = "";
       previewDiv.insertAdjacentHTML("afterbegin", renderedPreviewHTML);
     }
-    if (isChanged !== null) {
-      // 何らかの変更が会った場合、cursorPositionに画面をスクロールする
+    else if (isChanged === "setting") {
+      document.getElementById("preview").style.fontSize = message["fontsize"]
+      console.log(message["fontsize"])
+    }
+    else if (isChanged === "cursor") {
+      // 何らかの変更があった場合、cursorPositionに画面をスクロールする
+      const content_ = message["content"];
       const cursorPosition = content_["curPos"];
-      console.log(cursorPosition);
       document.getElementById(`line${cursorPosition[1] - 1}`).scrollIntoView({
         behavior: "smooth",
         block: "center",

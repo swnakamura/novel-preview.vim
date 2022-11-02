@@ -1,10 +1,10 @@
 import { Denops } from "https://deno.land/x/denops_std@v1.0.0/mod.ts";
 import { ensureString } from "https://deno.land/x/unknownutil@v1.0.0/mod.ts";
-export * as vars from "https://deno.land/x/denops_std@v3.9.1/variable/mod.ts";
-export * as helper from "https://deno.land/x/denops_std@v3.9.1/helper/mod.ts";
-export * as autocmd from "https://deno.land/x/denops_std@v3.9.1/autocmd/mod.ts";
-export * as fn from "https://deno.land/x/denops_std@v3.9.1/function/mod.ts";
-export * as opts from "https://deno.land/x/denops_std@v3.9.1/option/mod.ts";
+import * as vars from "https://deno.land/x/denops_std@v3.9.1/variable/mod.ts";
+import * as helper from "https://deno.land/x/denops_std@v3.9.1/helper/mod.ts";
+import * as autocmd from "https://deno.land/x/denops_std@v3.9.1/autocmd/mod.ts";
+import * as fn from "https://deno.land/x/denops_std@v3.9.1/function/mod.ts";
+import * as opts from "https://deno.land/x/denops_std@v3.9.1/option/mod.ts";
 import {
   createApp,
   serveStatic,
@@ -41,6 +41,9 @@ export async function main(denops: Denops): Promise<void> {
   );
   await denops.cmd(
     `command! NovelPreviewSend call denops#request('${denops.name}', 'sendBuffer', [])`,
+  );
+  await denops.cmd(
+    `command! NovelPreviewUpdateSetting call denops#request('${denops.name}', 'sendNewSettings', [])`,
   );
   // dispatcherを定義
   denops.dispatcher = {
@@ -102,6 +105,16 @@ export async function main(denops: Denops): Promise<void> {
         } catch (error) {
           console.error(error);
         }
+      }
+      return await Promise.resolve();
+    },
+    async sendNewSettings(): Promise<unknown> {
+      let message: Message = {
+        "isChanged": "setting",
+        "fontsize": await vars.g.get(denops, "novelpreview#fontsize") as string,
+      };
+      if (lastSocket !== undefined) {
+        lastSocket.send(JSON.stringify(message));
       }
       return await Promise.resolve();
     },
