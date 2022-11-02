@@ -2,6 +2,7 @@ let conn = new WebSocket("ws://localhost:8899/ws");
 let bufferLines = null;
 conn.onopen = function () {
   console.log("connection opened!");
+  conn.send("Send me buffer");
 };
 conn.onmessage = function (event) {
   if (event.data !== "Unchanged") {

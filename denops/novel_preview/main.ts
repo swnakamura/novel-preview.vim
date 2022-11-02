@@ -95,6 +95,7 @@ export async function main(denops: Denops): Promise<void> {
           for await (const msg of sock) {
             if (typeof msg === "string") {
               await sendContentMessage(denops);
+              await sendSettings(denops);
             }
           }
         }
@@ -114,19 +115,23 @@ export async function main(denops: Denops): Promise<void> {
       return await Promise.resolve();
     },
     async sendNewSettings(): Promise<unknown> {
-      let message: Message = {
-        "isChanged": "setting",
-        "settings": {
-          "charperline":await vars.g.get(denops, "novelpreview#charperline") as number,
-          "height": await vars.g.get(denops, "novelpreview#height") as number,
-        }
-      };
-      if (lastSocket !== undefined) {
-        lastSocket.send(JSON.stringify(message));
-      }
+      await sendSettings(denops);
       return await Promise.resolve();
     },
   };
+}
+
+async function sendSettings(denops: Denops){
+  let message: Message = {
+    "isChanged": "setting",
+    "settings": {
+      "charperline":await vars.g.get(denops, "novelpreview#charperline") as number,
+      "height": await vars.g.get(denops, "novelpreview#height") as number,
+    }
+  };
+  if (lastSocket !== undefined) {
+    lastSocket.send(JSON.stringify(message));
+  }
 }
 
 // Content = (cursor position, 本文)が変わったというメッセージを送信
