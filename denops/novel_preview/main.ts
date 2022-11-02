@@ -22,10 +22,15 @@ interface Content {
   curPos: Array<number>;
 }
 
+interface PreviewSetting {
+  charperline: number,
+  height: number,
+}
+
 interface Message {
   isChanged: null | string;
   content: null | Content;
-  fontsize: null| string;
+  settings: null | PreviewSetting;
 }
 
 // 最後に送信したメッセージを覚えておくための変数
@@ -111,7 +116,10 @@ export async function main(denops: Denops): Promise<void> {
     async sendNewSettings(): Promise<unknown> {
       let message: Message = {
         "isChanged": "setting",
-        "fontsize": await vars.g.get(denops, "novelpreview#fontsize") as string,
+        "settings": {
+          "charperline":await vars.g.get(denops, "novelpreview#charperline") as number,
+          "height": await vars.g.get(denops, "novelpreview#height") as number,
+        }
       };
       if (lastSocket !== undefined) {
         lastSocket.send(JSON.stringify(message));

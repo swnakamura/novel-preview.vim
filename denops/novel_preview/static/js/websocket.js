@@ -22,7 +22,11 @@ conn.onmessage = function (event) {
       previewDiv.insertAdjacentHTML("afterbegin", renderedPreviewHTML);
     }
     else if (isChanged === "setting") {
-      document.getElementById("preview").style.fontSize = message["fontsize"]
+      let charperline = message["settings"]["charperline"];
+      let height = message["settings"]["height"];
+      document.getElementById("preview").style.height = message["settings"]["height"] + '%';
+      document.getElementById("preview").style.fontSize = height/charperline + 'vh';
+      document.getElementById("preview").style.backgroundImage = `repeating-linear-gradient( to left, #333, #333 1px, transparent 1px, transparent ${height/charperline*1.5}vh)`;
       console.log(message["fontsize"])
     }
     else if (isChanged === "cursor") {
