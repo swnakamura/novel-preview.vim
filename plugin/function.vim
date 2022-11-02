@@ -1,4 +1,4 @@
 command! NovelPreviewAutoSend autocmd BufWrite,CursorMoved,TextChangedI <buffer> NovelPreviewSend
 
-let g:novelpreview#charperline=26
-let g:novelpreview#height=98
+let g:novelpreview#charperline=40
+let g:novelpreview#height=100
