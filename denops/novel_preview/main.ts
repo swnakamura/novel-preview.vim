@@ -5,17 +5,15 @@ import * as helper from "https://deno.land/x/denops_std@v3.9.1/helper/mod.ts";
 import * as autocmd from "https://deno.land/x/denops_std@v3.9.1/autocmd/mod.ts";
 import * as fn from "https://deno.land/x/denops_std@v3.9.1/function/mod.ts";
 import * as opts from "https://deno.land/x/denops_std@v3.9.1/option/mod.ts";
-import {
-  createApp,
-  serveStatic,
-} from "https://deno.land/x/servest@v1.3.1/mod.ts";
 import { fromFileUrl } from "https://deno.land/std@0.105.0/path/mod.ts";
+import { serve } from "https://deno.land/std@0.114.0/http/server.ts";
+import { readFile } from "node:fs/promises";
 import type { WebSocket } from "https://deno.land/std@0.105.0/ws/mod.ts";
 
 // 最後に通信してきたクライアントを覚えておくための変数
 // このクライアントのみに返信するので、タブやウィンドウを複数開くと一つにしか返信されないがこれは仕様
 // クソ雑実装だが自分しか使わないのでまあいいだろう
-let lastSocket: WebSocket | undefined = undefined;
+let lastSocket: globalThis.WebSocket | undefined = undefined;
 
 interface Content {
   bufferLines: Array<string>;
@@ -23,8 +21,8 @@ interface Content {
 }
 
 interface PreviewSetting {
-  charperline: number,
-  height: number,
+  charperline: number;
+  height: number;
 }
 
 interface Message {
@@ -59,48 +57,53 @@ export async function main(denops: Denops): Promise<void> {
     },
     async startServer(): Promise<unknown> {
       // サーバを立てる
-      const app = createApp();
-
-      // index.htmlにアクセスされたときだけはbodyHTMLを返す
-      const index_url = new URL("./index.html", import.meta.url);
-      const bodyHTML = Deno.readTextFileSync(fromFileUrl(index_url));
-      app.get("/", async (req) => {
-        await req.respond({
-          status: 200,
-          headers: new Headers({
-            "content-type": "text/html",
-          }),
-          body: bodyHTML,
-        });
-      });
-      // それ以外のときはstaticの中身をそのまま返す
-      let misc_url = new URL("./static", import.meta.url);
-      let misc_root_directory = fromFileUrl(misc_url);
-      app.use(serveStatic(misc_root_directory));
-      app.listen({ port: 8899 });
-      // 将来的には返すbodyHTMLの内容を変更することもできるようにこういう実装をしているが、
-      // 現状bodyHTMLはconstなのでこちらにまとめてしまっても良い
-
-      // websocketサーバに飛んできたメッセージに返信する
-      app.ws("/ws", handleHandShake);
-
-      // ページを開く
-      // let browser = await denops.eval(`get(environ(), 'BROWSER', 'firefox')`);
-      // denops.cmd(`!${browser} localhost:8899`);
-
-      // 向こうから通信があったとき
-      function handleHandShake(sock: WebSocket) {
-        async function handleMessage(sock: WebSocket) {
-          lastSocket = sock;
-          for await (const msg of sock) {
+      const addr = "localhost:8899";
+      serve((req: Request) => {
+        const upgrade = req.headers.get("upgrade") || "";
+        if (upgrade.toLowerCase() != "websocket") {
+          return normalResponse(req);
+        }
+        const { socket, response } = Deno.upgradeWebSocket(req);
+        socket.onmessage = async (e) => {
+          lastSocket = socket;
+          for await (const msg of e.data) {
             if (typeof msg === "string") {
               await sendContentMessage(denops);
               await sendSettings(denops);
             }
           }
+        };
+        return response;
+      }, { addr });
+
+      async function normalResponse(req: Request): Promise<Response> {
+        if (req.method !== "GET") {
+          return new Response("404 Not Found", { status: 404 });
         }
-        handleMessage(sock);
+        const url = new URL(req.url);
+        let requested_filepath = decodeURIComponent(url.pathname);
+        if (requested_filepath == '/') {
+          requested_filepath = '/index.html'
+        }
+        if (requested_filepath != '/index.html') {
+          requested_filepath = '/static' + requested_filepath
+        }
+        let file;
+        try {
+          const filepath =new URL('.', import.meta.url).pathname + requested_filepath; 
+          console.log(filepath)
+          file = await Deno.open(filepath, { read: true });
+        } catch {
+          return new Response("404 Not Found", { status: 404 });
+        }
+        const readableStream = file.readable;
+        return new Response(readableStream);
       }
+
+      // // ページを開く
+      // let browser = await denops.eval(`get(environ(), 'BROWSER', 'firefox')`);
+      // denops.cmd(`!${browser} localhost:8899`);
+
       return await Promise.resolve();
     },
     async sendBuffer(): Promise<unknown> {
@@ -121,13 +124,16 @@ export async function main(denops: Denops): Promise<void> {
   };
 }
 
-async function sendSettings(denops: Denops){
+async function sendSettings(denops: Denops) {
   let message: Message = {
     "isChanged": "setting",
     "settings": {
-      "charperline":await vars.g.get(denops, "novelpreview#charperline") as number,
+      "charperline": await vars.g.get(
+        denops,
+        "novelpreview#charperline",
+      ) as number,
       "height": await vars.g.get(denops, "novelpreview#height") as number,
-    }
+    },
   };
   if (lastSocket !== undefined) {
     lastSocket.send(JSON.stringify(message));
@@ -146,7 +152,7 @@ async function sendContentMessage(denops: Denops) {
 
   let content: Content;
   let message: Message;
-  if (bufferLines.join()!==previousContent["bufferLines"].join()) {
+  if (bufferLines.join() !== previousContent["bufferLines"].join()) {
     // 前回とはバッファの内容が異なる場合、全部の情報を送信して画面を全書き換えする
     content = {
       bufferLines: bufferLines,
@@ -157,7 +163,7 @@ async function sendContentMessage(denops: Denops) {
       "isChanged": "buffer",
       "content": content,
     };
-  } else if (curPos.join()!== previousContent["curPos"].join()) {
+  } else if (curPos.join() !== previousContent["curPos"].join()) {
     // バッファの内容は同じだがカーソルの場所だけが異なる場合、カーソルの新しい位置だけ送れば良い
     content = {
       bufferLines: [],
