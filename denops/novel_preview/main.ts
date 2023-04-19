@@ -7,8 +7,77 @@ import * as fn from "https://deno.land/x/denops_std@v3.9.1/function/mod.ts";
 import * as opts from "https://deno.land/x/denops_std@v3.9.1/option/mod.ts";
 import { fromFileUrl } from "https://deno.land/std@0.105.0/path/mod.ts";
 import { serve } from "https://deno.land/std@0.114.0/http/server.ts";
-import { readFile } from "node:fs/promises";
-import type { WebSocket } from "https://deno.land/std@0.105.0/ws/mod.ts";
+
+// A local server that returns the content of a specific buffer
+class Server {
+  denops: Denops;
+  bufnr: number;
+  buffer: string[] = [];
+  _listener: Deno.Listener | undefined;
+  _sockets: globalThis.WebSocket[] = [];
+  constructor(denops: Denops, bufnr: number) {
+    this.denops = denops;
+    this.bufnr = bufnr;
+    this.evalBufferContent();
+  }
+
+  async evalBufferContent() {
+    this.buffer = await (this.denops.eval("getline(1, '$')")) as string[];
+  }
+
+  run(host: string, port: number) {
+    this._listener = Deno.listen({ hostname: host, port: port });
+    this._serve(this._listener);
+  }
+
+  private async _serve(listener: Deno.Listener) {
+    const handleHttp = async (conn: Deno.Conn) => {
+      for await (const e of Deno.serveHttp(conn)) {
+        const { request, respondWith } = e;
+        const wantsUpgradeTo = request.headers.get("upgrade") || "";
+        if (wantsUpgradeTo.toLowerCase() == "websocket") {
+          const { socket, response } = Deno.upgradeWebSocket(request);
+          this._sockets.push(socket);
+          socket.onopen = () => {
+          }
+          e.respondWith(response);
+        } else {
+          respondWith(this._httpResponse(request));
+        }
+      }
+    };
+    for await (const conn of listener) {
+      handleHttp(conn);
+    }
+  }
+
+  private async _httpResponse(req: Request): Promise<Response> {
+    if (req.method !== "GET") {
+      return new Response("404 Not Found", { status: 404 });
+    }
+    const url = new URL(req.url);
+    let requested_filepath = decodeURIComponent(url.pathname);
+    if (requested_filepath == "/") {
+      requested_filepath = "/index.html";
+    }
+    if (requested_filepath != "/index.html") {
+      requested_filepath = "/static" + requested_filepath;
+    }
+    let file;
+    try {
+      const filepath = new URL(".", import.meta.url).pathname +
+        requested_filepath;
+      console.log(filepath);
+      file = await Deno.open(filepath, { read: true });
+    } catch {
+      return new Response("404 Not Found", { status: 404 });
+    }
+    const readableStream = file.readable;
+    return new Response(readableStream);
+  }
+}
+
+let server: Server | undefined;
 
 // 最後に通信してきたクライアントを覚えておくための変数
 // このクライアントのみに返信するので、タブやウィンドウを複数開くと一つにしか返信されないがこれは仕様
@@ -57,49 +126,11 @@ export async function main(denops: Denops): Promise<void> {
     },
     async startServer(): Promise<unknown> {
       // サーバを立てる
-      const addr = "localhost:8899";
-      serve((req: Request) => {
-        const upgrade = req.headers.get("upgrade") || "";
-        if (upgrade.toLowerCase() != "websocket") {
-          return normalResponse(req);
-        }
-        const { socket, response } = Deno.upgradeWebSocket(req);
-        socket.onmessage = async (e) => {
-          lastSocket = socket;
-          for await (const msg of e.data) {
-            if (typeof msg === "string") {
-              await sendContentMessage(denops);
-              await sendSettings(denops);
-            }
-          }
-        };
-        return response;
-      }, { addr });
-
-      async function normalResponse(req: Request): Promise<Response> {
-        if (req.method !== "GET") {
-          return new Response("404 Not Found", { status: 404 });
-        }
-        const url = new URL(req.url);
-        let requested_filepath = decodeURIComponent(url.pathname);
-        if (requested_filepath == '/') {
-          requested_filepath = '/index.html'
-        }
-        if (requested_filepath != '/index.html') {
-          requested_filepath = '/static' + requested_filepath
-        }
-        let file;
-        try {
-          const filepath =new URL('.', import.meta.url).pathname + requested_filepath; 
-          console.log(filepath)
-          file = await Deno.open(filepath, { read: true });
-        } catch {
-          return new Response("404 Not Found", { status: 404 });
-        }
-        const readableStream = file.readable;
-        return new Response(readableStream);
+      if (server == undefined) {
+        console.log("Starting server");
+        server = new Server(denops, await denops.eval("bufnr()") as number);
+        server.run("localhost", 8899);
       }
-
       // // ページを開く
       // let browser = await denops.eval(`get(environ(), 'BROWSER', 'firefox')`);
       // denops.cmd(`!${browser} localhost:8899`);
@@ -108,23 +139,25 @@ export async function main(denops: Denops): Promise<void> {
     },
     async sendBuffer(): Promise<unknown> {
       // こちらから送信するとき
-      if (lastSocket !== undefined) {
-        try {
-          await sendContentMessage(denops);
-        } catch (error) {
-          console.error(error);
-        }
+      if (server !== undefined) {
+        server._sockets.forEach((s) => sendContentMessage(denops, s));
+      } else {
+        console.error("ERROR");
       }
-      return await Promise.resolve();
+      return Promise.resolve();
     },
     async sendNewSettings(): Promise<unknown> {
-      await sendSettings(denops);
+      if (server !== undefined) {
+        server._sockets.forEach((s) => sendSettings(denops, s));
+      } else {
+        console.error("ERROR");
+      }
       return await Promise.resolve();
     },
   };
 }
 
-async function sendSettings(denops: Denops) {
+async function sendSettings(denops: Denops, socket: WebSocket) {
   let message: Message = {
     "isChanged": "setting",
     "settings": {
@@ -135,13 +168,11 @@ async function sendSettings(denops: Denops) {
       "height": await vars.g.get(denops, "novelpreview#height") as number,
     },
   };
-  if (lastSocket !== undefined) {
-    lastSocket.send(JSON.stringify(message));
-  }
+  socket.send(JSON.stringify(message));
 }
 
 // Content = (cursor position, 本文)が変わったというメッセージを送信
-async function sendContentMessage(denops: Denops) {
+async function sendContentMessage(denops: Denops, socket: WebSocket) {
   let bufferLines = (await denops.eval("getline(1, '$')")) as Array<
     string
   >;
@@ -182,7 +213,6 @@ async function sendContentMessage(denops: Denops) {
       "content": null,
     };
   }
-  if (lastSocket !== undefined) {
-    lastSocket.send(JSON.stringify(message));
-  }
+  console.log(socket);
+  socket.send(JSON.stringify(message));
 }

@@ -1,4 +1,4 @@
-let conn = new WebSocket("ws://localhost:8899/ws");
+const conn = new WebSocket("ws://localhost:8899/ws");
 let bufferLines = null;
 conn.onopen = function () {
   console.log("connection opened!");
@@ -42,10 +42,9 @@ conn.onmessage = function (event) {
     }
   }
 };
-
 window.setInterval(() => {
   conn.send("Send me buffer");
-}, 30000);
+}, 5000);
 
 function renderPreview(
   bufferLines,
@@ -102,3 +101,4 @@ function pixivFormatter(x) {
   }
   return x;
 }
+conn.send("Send me buffer");
