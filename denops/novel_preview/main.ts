@@ -1,12 +1,12 @@
 import { Denops } from "https://deno.land/x/denops_std@v1.0.0/mod.ts";
 import { ensureString } from "https://deno.land/x/unknownutil@v1.0.0/mod.ts";
 import * as vars from "https://deno.land/x/denops_std@v3.9.1/variable/mod.ts";
-import * as helper from "https://deno.land/x/denops_std@v3.9.1/helper/mod.ts";
-import * as autocmd from "https://deno.land/x/denops_std@v3.9.1/autocmd/mod.ts";
-import * as fn from "https://deno.land/x/denops_std@v3.9.1/function/mod.ts";
-import * as opts from "https://deno.land/x/denops_std@v3.9.1/option/mod.ts";
-import { fromFileUrl } from "https://deno.land/std@0.105.0/path/mod.ts";
-import { serve } from "https://deno.land/std@0.114.0/http/server.ts";
+// import * as helper from "https://deno.land/x/denops_std@v3.9.1/helper/mod.ts";
+// import * as autocmd from "https://deno.land/x/denops_std@v3.9.1/autocmd/mod.ts";
+// import * as fn from "https://deno.land/x/denops_std@v3.9.1/function/mod.ts";
+// import * as opts from "https://deno.land/x/denops_std@v3.9.1/option/mod.ts";
+// import { fromFileUrl } from "https://deno.land/std@0.105.0/path/mod.ts";
+// import { serve } from "https://deno.land/std@0.114.0/http/server.ts";
 
 // A local server that returns the content of a specific buffer
 class Server {
@@ -39,7 +39,7 @@ class Server {
           const { socket, response } = Deno.upgradeWebSocket(request);
           this._sockets.push(socket);
           socket.onopen = () => {
-          }
+          };
           e.respondWith(response);
         } else {
           respondWith(this._httpResponse(request));
@@ -78,11 +78,6 @@ class Server {
 }
 
 let server: Server | undefined;
-
-// 最後に通信してきたクライアントを覚えておくための変数
-// このクライアントのみに返信するので、タブやウィンドウを複数開くと一つにしか返信されないがこれは仕様
-// クソ雑実装だが自分しか使わないのでまあいいだろう
-let lastSocket: globalThis.WebSocket | undefined = undefined;
 
 interface Content {
   bufferLines: Array<string>;
@@ -140,7 +135,9 @@ export async function main(denops: Denops): Promise<void> {
     async sendBuffer(): Promise<unknown> {
       // こちらから送信するとき
       if (server !== undefined) {
-        server._sockets.forEach((s) => sendContentMessage(denops, s));
+        server._sockets.forEach(async (s) =>
+          await sendContentMessage(denops, s)
+        );
       } else {
         console.error("ERROR");
       }
@@ -158,8 +155,9 @@ export async function main(denops: Denops): Promise<void> {
 }
 
 async function sendSettings(denops: Denops, socket: WebSocket) {
-  let message: Message = {
+  const message: Message = {
     "isChanged": "setting",
+    "content": null,
     "settings": {
       "charperline": await vars.g.get(
         denops,
@@ -193,6 +191,7 @@ async function sendContentMessage(denops: Denops, socket: WebSocket) {
     message = {
       "isChanged": "buffer",
       "content": content,
+      "settings": null,
     };
   } else if (curPos.join() !== previousContent["curPos"].join()) {
     // バッファの内容は同じだがカーソルの場所だけが異なる場合、カーソルの新しい位置だけ送れば良い
@@ -205,14 +204,18 @@ async function sendContentMessage(denops: Denops, socket: WebSocket) {
     message = {
       "isChanged": "cursor",
       "content": content,
+      "settings": null,
     };
   } else {
     // 何も違わない場合
     message = {
       "isChanged": null,
       "content": null,
+      "settings": null,
     };
   }
   console.log(socket);
-  socket.send(JSON.stringify(message));
+  if (socket.readyState == 1) {
+    socket.send(JSON.stringify(message));
+  }
 }

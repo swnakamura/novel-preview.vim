@@ -5,6 +5,7 @@ conn.onopen = function () {
   conn.send("Send me buffer");
 };
 conn.onmessage = function (event) {
+    console.log("Receiving message");
   if (event.data !== "Unchanged") {
     const message = JSON.parse(event.data);
     const isChanged = message["isChanged"];
@@ -101,4 +102,3 @@ function pixivFormatter(x) {
   }
   return x;
 }
-conn.send("Send me buffer");
