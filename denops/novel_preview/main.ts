@@ -1,6 +1,7 @@
 import { Denops } from "https://deno.land/x/denops_std@v1.0.0/mod.ts";
 import { ensureString } from "https://deno.land/x/unknownutil@v1.0.0/mod.ts";
 import * as vars from "https://deno.land/x/denops_std@v3.9.1/variable/mod.ts";
+import { open } from "https://deno.land/x/open@v0.0.5/index.ts";
 // import * as helper from "https://deno.land/x/denops_std@v3.9.1/helper/mod.ts";
 // import * as autocmd from "https://deno.land/x/denops_std@v3.9.1/autocmd/mod.ts";
 // import * as fn from "https://deno.land/x/denops_std@v3.9.1/function/mod.ts";
@@ -126,9 +127,14 @@ export async function main(denops: Denops): Promise<void> {
         server = new Server(denops, await denops.eval("bufnr()") as number);
         server.run("localhost", 8899);
       }
-      // // ページを開く
-      // let browser = await denops.eval(`get(environ(), 'BROWSER', 'firefox')`);
-      // denops.cmd(`!${browser} localhost:8899`);
+      // ページを開く
+      const browser = {
+        app: await denops.eval(
+          `get(environ(), 'BROWSER', 'firefox')`,
+        ) as string,
+      };
+      open("localhost:8899", browser);
+      denops.cmd(`!${browser} localhost:8899`);
 
       return await Promise.resolve();
     },
