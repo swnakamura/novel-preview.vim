@@ -39,8 +39,6 @@ class Server {
         if (wantsUpgradeTo.toLowerCase() == "websocket") {
           const { socket, response } = Deno.upgradeWebSocket(request);
           this._sockets.push(socket);
-          socket.onopen = () => {
-          };
           e.respondWith(response);
         } else {
           respondWith(this._httpResponse(request));
@@ -220,7 +218,6 @@ async function sendContentMessage(denops: Denops, socket: WebSocket) {
       "settings": null,
     };
   }
-  console.log(socket);
   if (socket.readyState == 1) {
     socket.send(JSON.stringify(message));
   }

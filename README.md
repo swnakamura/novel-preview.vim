@@ -25,7 +25,7 @@ denoと[denops.vim](https://github.com/vim-denops/denops.vim)
 ```
 autocmd BufWrite,CursorMoved,TextChangedI <buffer> NovelPreviewSend
 ```
-とすれば、文章を書き進めるたびにサーバーが更新されます。
+とすれば、文章を書き進めるたびにサーバーが更新されます。なお、`NovelPreviewAutoSend`はこれを行います。
 
 また例えば、小説を`*.novel`という拡張子で保存するようにしている場合、
 ```

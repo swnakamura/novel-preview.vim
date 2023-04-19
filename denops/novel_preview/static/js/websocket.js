@@ -43,6 +43,9 @@ conn.onmessage = function (event) {
     }
   }
 };
+conn.onclose = function () {
+    globalThis.close();
+}
 window.setInterval(() => {
   conn.send("Send me buffer");
 }, 5000);
