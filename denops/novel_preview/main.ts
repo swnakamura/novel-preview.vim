@@ -119,21 +119,20 @@ export async function main(denops: Denops): Promise<void> {
       return await Promise.resolve(text);
     },
     async startServer(): Promise<unknown> {
-      // サーバを立てる
+      // まだないならサーバを立て、ページを開く
       if (server == undefined) {
         console.log("Starting server");
         server = new Server(denops, await denops.eval("bufnr()") as number);
         server.run("localhost", 8899);
-      }
-      // ページを開く
-      const browser = {
-        app: await denops.eval(
-          `get(environ(), 'BROWSER', 'firefox')`,
-        ) as string,
-      };
-      open("localhost:8899", browser);
-      denops.cmd(`!${browser} localhost:8899`);
 
+        const browser = {
+          app: await denops.eval(
+            `get(environ(), 'BROWSER', 'firefox')`,
+          ) as string,
+        };
+        // open("localhost:8899", browser);
+        denops.cmd(`!open http://localhost:8899`);
+      }
       return await Promise.resolve();
     },
     async sendBuffer(): Promise<unknown> {
@@ -173,50 +172,68 @@ async function sendSettings(denops: Denops, socket: WebSocket) {
   socket.send(JSON.stringify(message));
 }
 
-// Content = (cursor position, 本文)が変わったというメッセージを送信
+// Content = (cursor position, 本文)が変わった（かもしれない）というメッセージを送信
 async function sendContentMessage(denops: Denops, socket: WebSocket) {
-  let bufferLines = (await denops.eval("getline(1, '$')")) as Array<
+  const bufferLines = (await denops.eval("getline(1, '$')")) as Array<
     string
   >;
-  let curPos = await denops.eval("getpos('.')") as Array<number>;
-  curPos[2] = await denops.eval(
-    `charidx(getline('.'), ${curPos[2]})`,
-  ) as number; // マルチバイト文字の場所を正しく得る
+  const curPos = await denops.eval("getcursorcharpos()") as Array<number>;
 
   let content: Content;
   let message: Message;
-  if (bufferLines.join() !== previousContent["bufferLines"].join()) {
-    // 前回とはバッファの内容が異なる場合、全部の情報を送信して画面を全書き換えする
-    content = {
-      bufferLines: bufferLines,
-      curPos: curPos,
-    };
-    previousContent = content;
-    message = {
-      "isChanged": "buffer",
-      "content": content,
-      "settings": null,
-    };
-  } else if (curPos.join() !== previousContent["curPos"].join()) {
-    // バッファの内容は同じだがカーソルの場所だけが異なる場合、カーソルの新しい位置だけ送れば良い
-    content = {
-      bufferLines: [],
-      curPos: curPos,
-    };
-    // previousContentはcurPosだけ更新
-    previousContent["curPos"] = curPos;
-    message = {
-      "isChanged": "cursor",
-      "content": content,
-      "settings": null,
-    };
+  const prevCurPos = previousContent["curPos"];
+  const prevBufferLines = previousContent["bufferLines"];
+  if (curPos[1] == prevCurPos[1]) {
+    // カーソルの行は変わっていない
+    if (curPos[2] === prevCurPos[2]) {
+      // カーソル行および列＝位置が変わっていない
+      return;
+    } else {
+      // カーソルの列が違う
+      if (bufferLines[curPos[1] - 1] !== prevBufferLines[curPos[1] - 1]) {
+        // バッファのこの行だけが変わっているので、この行だけを更新するよういってやればよい
+        content = {
+          bufferLines: bufferLines,
+          curPos: curPos,
+        };
+        previousContent = content;
+        message = {
+          "isChanged": "line",
+          "content": content,
+          "settings": null,
+        };
+      } else {
+        // カーソル列が変わっているがそれだけ
+        return;
+      }
+    }
   } else {
-    // 何も違わない場合
-    message = {
-      "isChanged": null,
-      "content": null,
-      "settings": null,
-    };
+    if (bufferLines.join(",") === prevBufferLines.join(",")) {
+      // バッファの内容は同じだがカーソル位置が異なるので、カーソルの新しい位置だけ送れば良い
+      content = {
+        bufferLines: [],
+        curPos: curPos,
+      };
+      // previousContentはcurPosだけ更新
+      previousContent["curPos"] = curPos;
+      message = {
+        "isChanged": "cursor",
+        "content": content,
+        "settings": null,
+      };
+    } else {
+      // 前回とはバッファの内容が異なる場合、全部の情報を送信して画面を全書き換えする
+      content = {
+        bufferLines: bufferLines,
+        curPos: curPos,
+      };
+      previousContent = content;
+      message = {
+        "isChanged": "buffer",
+        "content": content,
+        "settings": null,
+      };
+    }
   }
   if (socket.readyState == 1) {
     socket.send(JSON.stringify(message));

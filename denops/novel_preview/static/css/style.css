@@ -9,7 +9,7 @@ div#preview {
     -epub-writing-mode: vertical-rl;
     -ms-writing-mode: tb-rl;
     writing-mode: vertical-rl;
-    text-orientation:upright;
+    text-orientation: mixed;
 
     font-size: 2.5vh;
     width: 100%;
@@ -18,10 +18,10 @@ div#preview {
     font-family: "Hiragino Mincho Pro", "游明朝", "YuMincho", serif;
 
     background-image: repeating-linear-gradient( to left, #333, #333 1px, transparent 1px, transparent 3.75vh);
-    overflow-y:hidden;   /* これは見た目的には横 */
+    overflow-y:hidden;
     background-attachment:local;
 
-    overflow-x:hidden;   /* これは見た目的には縦 */
+    overflow-x:scroll;
     line-height:1.5em;
 }
 p.honbun {

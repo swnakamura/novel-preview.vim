@@ -14,18 +14,28 @@ conn.onmessage = function (event) {
     if (isChanged === null) {
       return;
     }
+    if (isChanged === "line") {
+      // 変更が行内にとどまっている場合、その行以外を変更する必要はない
+      const lnum = message["content"]["curPos"][1];
+      console.log(lnum)
+      console.log(message["content"]["bufferLines"])
+      console.log(message["content"]["bufferLines"][lnum-1])
+      const renderedPreviewHTML = bufferLine2Paragraph(message["content"]["bufferLines"][lnum-1], lnum-1);
+      const lineParagraph = document.getElementById(`line${lnum-1}`);
+      lineParagraph.outerHTML = renderedPreviewHTML;
+    }
     if (isChanged === "buffer") {
       const content_ = message["content"];
       // bufferの内容が変わっていた場合、送られてきた最新のバッファの内容でHTMLの内容を更新する
       bufferLines = content_["bufferLines"];
-      renderedPreviewHTML = renderPreview(bufferLines);
-      let previewDiv = document.getElementById("preview");
+      renderedPreviewHTML = renderBufferLines(bufferLines);
+      const previewDiv = document.getElementById("preview");
       previewDiv.textContent = "";
       previewDiv.insertAdjacentHTML("afterbegin", renderedPreviewHTML);
     }
     else if (isChanged === "setting") {
-      let charperline = message["settings"]["charperline"];
-      let height = message["settings"]["height"];
+      const charperline = message["settings"]["charperline"];
+      const height = message["settings"]["height"];
       document.getElementById("preview").style.height = message["settings"]["height"] + '%';
       document.getElementById("preview").style.fontSize = height/charperline + 'vh';
       document.getElementById("preview").style.backgroundImage = `repeating-linear-gradient( to left, #333, #333 1px, transparent 1px, transparent ${height/charperline*1.5}vh)`;
@@ -50,19 +60,25 @@ window.setInterval(() => {
   conn.send("Send me buffer");
 }, 5000);
 
-function renderPreview(
+function renderBufferLines(
   bufferLines,
 ) {
-  let bufferContentList = JSON.parse(JSON.stringify(bufferLines)); // deep copy
+  const bufferContentList = JSON.parse(JSON.stringify(bufferLines)); // deep copy
+
 
   const bufferContent =
-    bufferContentList.map((x, i) =>
-      `<p class="honbun" id="line${i}">` + pixivFormatter(x) + "</p>"
+    bufferContentList.map((line, i) =>
+      bufferLine2Paragraph(line, i)
     ).join("") +
     "<p>　</p>".repeat(15); // add many endline for viewing
 
   return bufferContent;
 }
+
+function bufferLine2Paragraph(line, i) {
+  return `<p class="honbun" id="line${i}">` + pixivFormatter(line) + "</p>"
+}
+
 function pixivFormatter(x) {
   //ルビ記法をHTMLに変換
   x = x.replace(
@@ -95,6 +111,12 @@ function pixivFormatter(x) {
     /(\S)ﾞ/g,
     "$1゙",
   );
+  x = x.replace(
+    /<summary/g,'&ltsummary'
+  )
+  x = x.replace(
+    /<details/g,'&ltdetails'
+  )
   // 空行が無視されてしまうので、全角空白を加えることで空行にする
   if (x === "") {
     x = "　";
