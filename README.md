@@ -6,11 +6,11 @@ https://user-images.githubusercontent.com/30687489/137055106-c59e20e6-75df-4660-
 
 Vimの現在のバッファの中身をブラウザに縦書き1行40文字でプレビューします。
 
-[ttrace](https://github.com/ttrace)氏の[vscode日本語縦書き小説拡張](https://github.com/ttrace/vscode-language-japanese-novel/tree/master/src)に触発されて作りました。これのプレビュー機能だけを取り出したVim版だと思ってくれればだいたい合ってます。
-実装においても大いに参考にしました。感謝します。
-
 小説を縦書きでそれっぽくプレビューできるものが欲しかったのでdenopsでさくっと作りました。個人的な使用を目的として作られているので機能は超限定的ですし、正しく動くかはわかりません。
 その分ソースコードも超単純（なはず）なので、わからないことがあったら読んでください。欲しい機能は言ってくれたら作るかもしれません。
+
+なお、このプラグインは[ttrace](https://github.com/ttrace)氏の[vscode日本語縦書き小説拡張](https://github.com/ttrace/vscode-language-japanese-novel)に触発されています。これのプレビュー機能だけを取り出したVim版だと思ってくれればだいたい合っています。
+実装においても大いに参考にしました。感謝します。
 
 # requirements
 
