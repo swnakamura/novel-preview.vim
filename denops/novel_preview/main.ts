@@ -2,12 +2,6 @@ import { Denops } from "https://deno.land/x/denops_std@v1.0.0/mod.ts";
 import { ensureString } from "https://deno.land/x/unknownutil@v1.0.0/mod.ts";
 import * as vars from "https://deno.land/x/denops_std@v3.9.1/variable/mod.ts";
 import { open } from "https://deno.land/x/open@v0.0.5/index.ts";
-// import * as helper from "https://deno.land/x/denops_std@v3.9.1/helper/mod.ts";
-// import * as autocmd from "https://deno.land/x/denops_std@v3.9.1/autocmd/mod.ts";
-// import * as fn from "https://deno.land/x/denops_std@v3.9.1/function/mod.ts";
-// import * as opts from "https://deno.land/x/denops_std@v3.9.1/option/mod.ts";
-// import { fromFileUrl } from "https://deno.land/std@0.105.0/path/mod.ts";
-// import { serve } from "https://deno.land/std@0.114.0/http/server.ts";
 
 // A local server that returns the content of a specific buffer
 class Server {
@@ -38,7 +32,7 @@ class Server {
         const wantsUpgradeTo = request.headers.get("upgrade") || "";
         if (wantsUpgradeTo.toLowerCase() == "websocket") {
           const { socket, response } = Deno.upgradeWebSocket(request);
-          this._sockets.push(socket);
+          this._socket = socket;
           e.respondWith(response);
         } else {
           respondWith(this._httpResponse(request));
@@ -119,28 +113,35 @@ export async function main(denops: Denops): Promise<void> {
       return await Promise.resolve(text);
     },
     async startServer(): Promise<unknown> {
-      // まだないならサーバを立て、ページを開く
-      if (server == undefined) {
-        console.log("Starting server");
-        server = new Server(denops, await denops.eval("bufnr()") as number);
-        server.run("localhost", 8899);
-
-        const browser = {
-          app: await denops.eval(
-            `get(environ(), 'BROWSER', 'firefox')`,
-          ) as string,
+      // サーバを立て、ページを開く
+      console.log("Starting server");
+      if (server != undefined){
+        if (server._socket != undefined) {
+          server._socket.close();
+        }
+        server._listener.close();
+        server = undefined;
+        previousContent = {
+          bufferLines: [],
+          curPos: [],
         };
-        // open("localhost:8899", browser);
-        denops.cmd(`!open http://localhost:8899`);
       }
+      server = new Server(denops, await denops.eval("bufnr()") as number);
+      server.run("localhost", 8899);
+
+      // const browser = {
+      //   app: await denops.eval(
+      //     `get(environ(), 'BROWSER', 'google-chrome')`,
+      //   ) as string,
+      // };
+      // open("localhost:8899", browser);
+      denops.cmd(`!open http://localhost:8899`);
       return await Promise.resolve();
     },
     async sendBuffer(): Promise<unknown> {
       // こちらから送信するとき
       if (server !== undefined) {
-        server._sockets.forEach(async (s) =>
-          await sendContentMessage(denops, s)
-        );
+        await sendContentMessage(denops, server._socket);
       } else {
         console.error("ERROR");
       }
@@ -148,7 +149,7 @@ export async function main(denops: Denops): Promise<void> {
     },
     async sendNewSettings(): Promise<unknown> {
       if (server !== undefined) {
-        server._sockets.forEach((s) => sendSettings(denops, s));
+        sendSettings(denops, server._socket);
       } else {
         console.error("ERROR");
       }
@@ -176,7 +177,7 @@ async function sendSettings(denops: Denops, socket: WebSocket) {
 async function sendContentMessage(denops: Denops, socket: WebSocket) {
   const bufferLines = (await denops.eval("getline(1, '$')")) as Array<
     string
-  >;
+    >;
   const curPos = await denops.eval("getcursorcharpos()") as Array<number>;
 
   let content: Content;
@@ -185,27 +186,29 @@ async function sendContentMessage(denops: Denops, socket: WebSocket) {
   const prevBufferLines = previousContent["bufferLines"];
   if (curPos[1] == prevCurPos[1]) {
     // カーソルの行は変わっていない
-    if (curPos[2] === prevCurPos[2]) {
-      // カーソル行および列＝位置が変わっていない
-      return;
-    } else {
-      // カーソルの列が違う
-      if (bufferLines[curPos[1] - 1] !== prevBufferLines[curPos[1] - 1]) {
-        // バッファのこの行だけが変わっているので、この行だけを更新するよういってやればよい
-        content = {
-          bufferLines: bufferLines,
-          curPos: curPos,
-        };
-        previousContent = content;
-        message = {
-          "isChanged": "line",
-          "content": content,
-          "settings": null,
-        };
-      } else {
-        // カーソル列が変わっているがそれだけ
-        return;
+    if (bufferLines[curPos[1] - 1] !== prevBufferLines[curPos[1] - 1]) {
+      // バッファのこの行が変わっている
+      // なので、この行だけを更新するよういってやればよい
+      let isChanged = 'line'
+      if (bufferLines[curPos[1]] !== prevBufferLines[curPos[1]]) {
+        // ただし、バッファの次の行も変わっている場合、
+        // ddなどにより、カーソル自体は動いていないが行が変わっている可能性がある
+        // なので全書き換え
+        isChanged = 'buffer'
       }
+      content = {
+        bufferLines: bufferLines,
+        curPos: curPos,
+      };
+      previousContent = content;
+      message = {
+        "isChanged": isChanged,
+        "content": content,
+        "settings": null,
+      };
+    } else {
+      // カーソル列が変わっているかもしれないがテキストは変わっていない
+      return;
     }
   } else {
     if (bufferLines.join(",") === prevBufferLines.join(",")) {
