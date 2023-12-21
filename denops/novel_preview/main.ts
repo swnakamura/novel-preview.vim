@@ -9,15 +9,137 @@ class Server {
   bufnr: number;
   buffer: string[] = [];
   _listener: Deno.Listener | undefined;
-  _sockets: globalThis.WebSocket[] = [];
+  _socket: globalThis.WebSocket | undefined;
+  previousContent: Content | undefined;
   constructor(denops: Denops, bufnr: number) {
     this.denops = denops;
     this.bufnr = bufnr;
-    this.evalBufferContent();
+    // 最後に送信したメッセージを覚えておくための変数
+    this.previousContent = undefined;
   }
 
-  async evalBufferContent() {
-    this.buffer = await (this.denops.eval("getline(1, '$')")) as string[];
+  // Content = (cursor position, 本文)が変わった（かもしれない）というメッセージを送信
+  async sendContentMessage() {
+    this.sendThroughSocket(await this.evalContent());
+  }
+
+  async sendSettings() {
+    const message: Message = {
+      "isChanged": "setting",
+      "content": null,
+      "settings": {
+        "charperline": await vars.g.get(
+          this.denops,
+          "novelpreview#charperline",
+        ) as number,
+        "height": await vars.g.get(
+          this.denops,
+          "novelpreview#height",
+        ) as number,
+      },
+    };
+    this.sendThroughSocket(message);
+  }
+
+  sendThroughSocket(message: Message) {
+    if (this._socket?.readyState == 1) {
+      this._socket.send(JSON.stringify(message));
+    }
+  }
+
+  async evalContent() {
+    let content: Content;
+    let message: Message;
+    const bufferLines = (await this.denops.eval("getline(1, '$')")) as Array<
+      string
+    >;
+    const curPos = (await this.denops.eval("getcursorcharpos()")) as Array<
+      number
+    >;
+
+    if (this.previousContent === undefined) {
+      // 初回評価では、全部の情報を送信して画面を全書き換えする
+      content = {
+        bufferLines: bufferLines,
+        curPos: curPos,
+      };
+      this.previousContent = content;
+      message = {
+        "isChanged": "buffer",
+        "content": content,
+        "settings": null,
+      };
+      return message;
+    }
+
+    const prevCurPos = this.previousContent["curPos"];
+    const prevBufferLines = this.previousContent["bufferLines"];
+    if (curPos[1] == prevCurPos[1]) {
+      // カーソルの行は変わっていない
+      if (bufferLines[curPos[1] - 1] !== prevBufferLines[curPos[1] - 1]) {
+        // バッファのこの行が変わっている
+        // なので、この行だけを更新するよういってやればよい
+        let isChanged = "line";
+        if (bufferLines[curPos[1]] !== prevBufferLines[curPos[1]]) {
+          // ただし、バッファの次の行も変わっている場合、
+          // ddなどにより、カーソル自体は動いていないが行が変わっている可能性がある
+          // なので全書き換え
+          isChanged = "buffer";
+        }
+        content = {
+          bufferLines: bufferLines,
+          curPos: curPos,
+        };
+        this.previousContent = content;
+        message = {
+          "isChanged": isChanged,
+          "content": content,
+          "settings": null,
+        };
+      } else {
+        // カーソル列が変わっているかもしれないがテキストは変わっていない
+        return {
+          "isChanged": null,
+          "content": null,
+          "settings": null,
+        };
+      }
+    } else {
+      const ac = [
+        Math.max(curPos[1] - 2, 0),
+        Math.min(curPos[1] + 2, bufferLines.length),
+      ]; // around cursor
+      if (
+        bufferLines.slice(ac[0], ac[1]).join(",") ===
+          prevBufferLines.slice(ac[0], ac[1]).join(",")
+      ) {
+        // バッファの内容は同じだがカーソル位置が異なるので、カーソルの新しい位置だけ送れば良い
+        content = {
+          bufferLines: [],
+          curPos: curPos,
+        };
+        // previousContentはcurPosだけ更新
+        this.previousContent["curPos"] = curPos;
+        message = {
+          "isChanged": "cursor",
+          "content": content,
+          "settings": null,
+        };
+      } else {
+        // 前回とはバッファの内容が異なる場合、全部の情報を送信して画面を全書き換えする
+        content = {
+          bufferLines: bufferLines,
+          curPos: curPos,
+        };
+        this.previousContent = content;
+        message = {
+          "isChanged": "buffer",
+          "content": content,
+          "settings": null,
+        };
+      }
+    }
+    return message;
   }
 
   run(host: string, port: number) {
@@ -60,7 +182,6 @@ class Server {
     try {
       const filepath = new URL(".", import.meta.url).pathname +
         requested_filepath;
-      console.log(filepath);
       file = await Deno.open(filepath, { read: true });
     } catch {
       return new Response("404 Not Found", { status: 404 });
@@ -69,8 +190,6 @@ class Server {
     return new Response(readableStream);
   }
 }
-
-let server: Server | undefined;
 
 interface Content {
   bufferLines: Array<string>;
@@ -88,14 +207,9 @@ interface Message {
   settings: null | PreviewSetting;
 }
 
-// 最後に送信したメッセージを覚えておくための変数
-let previousContent: Content = {
-  bufferLines: [],
-  curPos: [],
-};
+let server: Server | undefined;
 
 export async function main(denops: Denops): Promise<void> {
-  // denopsコマンドを定義
   await denops.cmd(
     `command! NovelPreviewStartServer call denops#request('${denops.name}', 'startServer', [])`,
   );
@@ -105,26 +219,18 @@ export async function main(denops: Denops): Promise<void> {
   await denops.cmd(
     `command! NovelPreviewUpdateSetting call denops#request('${denops.name}', 'sendNewSettings', [])`,
   );
-  // dispatcherを定義
   denops.dispatcher = {
-    // example dispatcher
-    async echo(text: unknown): Promise<unknown> {
-      ensureString(text);
-      return await Promise.resolve(text);
-    },
     async startServer(): Promise<unknown> {
       // サーバを立て、ページを開く
       console.log("Starting server");
-      if (server != undefined){
-        if (server._socket != undefined) {
+      if (server !== undefined) {
+        if (server._socket !== undefined) {
           server._socket.close();
         }
-        server._listener.close();
+        if (server._listener !== undefined) {
+          server._listener.close();
+        }
         server = undefined;
-        previousContent = {
-          bufferLines: [],
-          curPos: [],
-        };
       }
       server = new Server(denops, await denops.eval("bufnr()") as number);
       server.run("localhost", 8899);
@@ -140,105 +246,20 @@ export async function main(denops: Denops): Promise<void> {
     },
     async sendBuffer(): Promise<unknown> {
       // こちらから送信するとき
-      if (server !== undefined) {
-        await sendContentMessage(denops, server._socket);
+      if (server !== undefined && server._socket !== undefined) {
+        await server.sendContentMessage();
       } else {
         console.error("ERROR");
       }
       return Promise.resolve();
     },
     async sendNewSettings(): Promise<unknown> {
-      if (server !== undefined) {
-        sendSettings(denops, server._socket);
+      if (server !== undefined && server._socket !== undefined) {
+        server.sendSettings();
       } else {
         console.error("ERROR");
       }
       return await Promise.resolve();
     },
   };
-}
-
-async function sendSettings(denops: Denops, socket: WebSocket) {
-  const message: Message = {
-    "isChanged": "setting",
-    "content": null,
-    "settings": {
-      "charperline": await vars.g.get(
-        denops,
-        "novelpreview#charperline",
-      ) as number,
-      "height": await vars.g.get(denops, "novelpreview#height") as number,
-    },
-  };
-  socket.send(JSON.stringify(message));
-}
-
-// Content = (cursor position, 本文)が変わった（かもしれない）というメッセージを送信
-async function sendContentMessage(denops: Denops, socket: WebSocket) {
-  const bufferLines = (await denops.eval("getline(1, '$')")) as Array<
-    string
-    >;
-  const curPos = await denops.eval("getcursorcharpos()") as Array<number>;
-
-  let content: Content;
-  let message: Message;
-  const prevCurPos = previousContent["curPos"];
-  const prevBufferLines = previousContent["bufferLines"];
-  if (curPos[1] == prevCurPos[1]) {
-    // カーソルの行は変わっていない
-    if (bufferLines[curPos[1] - 1] !== prevBufferLines[curPos[1] - 1]) {
-      // バッファのこの行が変わっている
-      // なので、この行だけを更新するよういってやればよい
-      let isChanged = 'line'
-      if (bufferLines[curPos[1]] !== prevBufferLines[curPos[1]]) {
-        // ただし、バッファの次の行も変わっている場合、
-        // ddなどにより、カーソル自体は動いていないが行が変わっている可能性がある
-        // なので全書き換え
-        isChanged = 'buffer'
-      }
-      content = {
-        bufferLines: bufferLines,
-        curPos: curPos,
-      };
-      previousContent = content;
-      message = {
-        "isChanged": isChanged,
-        "content": content,
-        "settings": null,
-      };
-    } else {
-      // カーソル列が変わっているかもしれないがテキストは変わっていない
-      return;
-    }
-  } else {
-    if (bufferLines.join(",") === prevBufferLines.join(",")) {
-      // バッファの内容は同じだがカーソル位置が異なるので、カーソルの新しい位置だけ送れば良い
-      content = {
-        bufferLines: [],
-        curPos: curPos,
-      };
-      // previousContentはcurPosだけ更新
-      previousContent["curPos"] = curPos;
-      message = {
-        "isChanged": "cursor",
-        "content": content,
-        "settings": null,
-      };
-    } else {
-      // 前回とはバッファの内容が異なる場合、全部の情報を送信して画面を全書き換えする
-      content = {
-        bufferLines: bufferLines,
-        curPos: curPos,
-      };
-      previousContent = content;
-      message = {
-        "isChanged": "buffer",
-        "content": content,
-        "settings": null,
-      };
-    }
-  }
-  if (socket.readyState == 1) {
-    socket.send(JSON.stringify(message));
-  }
 }
