@@ -1,11 +1,11 @@
-html{
-    background-color: #161821;
-    color: #ccc;
-}
 body {
-    margin:0;
-}
-div#preview {
+    /* background-color: #161821; */
+    color: #ccc;
+    margin: 0;
+    line-height: 4vh;
+
+    box-sizing: border-box;
+
     -epub-writing-mode: vertical-rl;
     -ms-writing-mode: tb-rl;
     writing-mode: vertical-rl;
@@ -15,17 +15,34 @@ div#preview {
     width: 100%;
     height: 100%;
     margin: 0;
-    font-family: "Hiragino Mincho Pro", "游明朝", "YuMincho", serif;
+    font-family: "GenEi Chikugo Mincho v3", "Hiragino Mincho Pro", "游明朝", "YuMincho", serif;
 
-    background-image: repeating-linear-gradient( to left, #333, #333 1px, transparent 1px, transparent 3.75vh);
     overflow-y:hidden;
     background-attachment:local;
 
     overflow-x:scroll;
-    line-height:1.5em;
+
+    text-rendering:optimizeSpeed;
+    hanging-punctuation: allow-end;
+    line-break: strict;
 }
 p.honbun {
     margin:0;
+    background-image: repeating-linear-gradient(to left, #333, #333 1px, transparent 1px, transparent 4vh);
+}
+
+ruby > rt {
+    font-size: 0.5em;
+}
+
+@keyframes cursorAnimation {
+  from {
+    background-color: rgba(66, 66, 66, 0);
+  }
+
+  to {
+    background-color: rgba(125, 125, 125, 0.7);
+  }
 }
 
 span#cursor {
