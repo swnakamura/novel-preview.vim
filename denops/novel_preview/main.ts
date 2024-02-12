@@ -76,6 +76,10 @@ class Server {
     const prevBufferLines = this.previousContent["bufferLines"];
     if (curPos[1] == prevCurPos[1]) {
       // カーソルの行は変わっていない
+      content = {
+        bufferLines: bufferLines,
+        curPos: curPos,
+      };
       if (bufferLines[curPos[1] - 1] !== prevBufferLines[curPos[1] - 1]) {
         // バッファのこの行が変わっている
         // なので、この行だけを更新するよういってやればよい
@@ -86,10 +90,6 @@ class Server {
           // なので全書き換え
           isChanged = "buffer";
         }
-        content = {
-          bufferLines: bufferLines,
-          curPos: curPos,
-        };
         this.previousContent = content;
         message = {
           "isChanged": isChanged,
@@ -97,12 +97,22 @@ class Server {
           "settings": null,
         };
       } else {
-        // カーソル列が変わっているかもしれないがテキストは変わっていない
-        return {
-          "isChanged": null,
-          "content": null,
-          "settings": null,
-        };
+        if (curPos[2] == prevCurPos[2]) {
+          // カーソル列も変わっていない
+          return {
+            "isChanged": null,
+            "content": null,
+            "settings": null,
+          };
+        } else {
+          // カーソル列が変わっているがテキストは変わっていない
+          // バッファの内容は同じだがカーソル位置が異なるので、カーソルの新しい位置だけ送れば良い
+          return {
+            "isChanged": "cursor",
+            "content": content,
+            "settings": null,
+          };
+        }
       }
     } else {
       const ac = [

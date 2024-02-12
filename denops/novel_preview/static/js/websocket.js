@@ -14,18 +14,18 @@ conn.onmessage = function (event) {
     if (isChanged === null) {
       return;
     }
+    const content_ = message["content"];
     if (isChanged === "line") {
       // 変更が行内にとどまっている場合、その行以外を変更する必要はない
       const lnum = message["content"]["curPos"][1];
       console.log(lnum)
       console.log(message["content"]["bufferLines"])
       console.log(message["content"]["bufferLines"][lnum-1])
-      const renderedPreviewHTML = bufferLine2Paragraph(message["content"]["bufferLines"][lnum-1], lnum-1);
+      const renderedPreviewHTML = bufferLine2Paragraph(content_["bufferLines"][lnum-1], lnum-1);
       const lineParagraph = document.getElementById(`line${lnum-1}`);
       lineParagraph.outerHTML = renderedPreviewHTML;
     }
     if (isChanged === "buffer") {
-      const content_ = message["content"];
       // bufferの内容が変わっていた場合、送られてきた最新のバッファの内容でHTMLの内容を更新する
       bufferLines = content_["bufferLines"];
       renderedPreviewHTML = renderBufferLines(bufferLines);
@@ -42,14 +42,37 @@ conn.onmessage = function (event) {
       console.log(message["fontsize"])
     }
     else if (isChanged === "cursor") {
-      // 何らかの変更があった場合、cursorPositionに画面をスクロールする
-      const content_ = message["content"];
+      // カーソル位置に変更があった場合
+      // cursorPositionに画面をスクロールする
       const cursorPosition = content_["curPos"];
       document.getElementById(`line${cursorPosition[1] - 1}`).scrollIntoView({
         behavior: "smooth",
         block: "center",
         inline: "center",
       });
+    }
+    if (["cursor", "buffer", "line"].includes(isChanged)) {
+      const cursorPosition = content_["curPos"];
+      // カーソル位置に変更がありうる場合はカーソル位置のspanタグを作り直す
+      // すでにあるspanタグを消す
+      const cursorElement = document.getElementById('cursor');
+      if (cursorElement != null) {
+        const cursorText = cursorElement.textContent || cursorElement.innerText;
+        const parentNode = cursorElement.parentNode;
+        parentNode.replaceChild(document.createTextNode(cursorText), cursorElement);
+      }
+      // spanタグを作る
+      const textElement = document.getElementById(`line${cursorPosition[1] - 1}`);
+      const text = textElement.innerText;
+      let newText = "";
+      for (let i = 0; i < text.length; i++) {
+        if (i == cursorPosition[2]-1)  {
+          newText += '<span id="cursor">' + text[i] + "</span>";
+        } else {
+          newText += text[i];
+        }
+      }
+      textElement.innerHTML = newText;
     }
   }
 };

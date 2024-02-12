@@ -35,19 +35,9 @@ ruby > rt {
     font-size: 0.5em;
 }
 
-@keyframes cursorAnimation {
-  from {
-    background-color: rgba(66, 66, 66, 0);
-  }
-
-  to {
-    background-color: rgba(125, 125, 125, 0.7);
-  }
-}
-
 span#cursor {
     background-color: rgb(197, 197, 197);
-    animation-duration: 0.5s;
+    animation-duration: 1s;
     animation-name: cursorAnimation;
     animation-iteration-count: infinite;
 }
