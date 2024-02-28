@@ -1,8 +1,7 @@
 body {
-    /* background-color: #161821; */
+    background-color: #161821;
     color: #ccc;
     margin: 0;
-    line-height: 4vh;
 
     box-sizing: border-box;
 
@@ -11,10 +10,11 @@ body {
     writing-mode: vertical-rl;
     text-orientation: mixed;
 
-    font-size: 2.5vh;
+    font-size: 2.35vh;
+    line-height: 1.6em;
     width: 100%;
-    height: 100%;
-    margin: 0;
+    height: 94%;
+    margin: 2% 0 4%;
     font-family: "GenEi Chikugo Mincho v3", "Hiragino Mincho Pro", "游明朝", "YuMincho", serif;
 
     overflow-y:hidden;
