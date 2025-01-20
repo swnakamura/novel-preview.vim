@@ -5,11 +5,9 @@ conn.onopen = function () {
   conn.send("Send me buffer");
 };
 conn.onmessage = function (event) {
-  console.log("Receiving message");
   if (event.data !== "Unchanged") {
     const message = JSON.parse(event.data);
     const isChanged = message["isChanged"];
-    console.log(isChanged);
     let renderedPreviewHTML = null;
     if (isChanged === null) {
       return;
@@ -18,9 +16,6 @@ conn.onmessage = function (event) {
     if (isChanged === "line") {
       // 変更が行内にとどまっている場合、その行以外を変更する必要はない
       const lnum = message["content"]["curPos"][1];
-      console.log(lnum);
-      console.log(message["content"]["bufferLines"]);
-      console.log(message["content"]["bufferLines"][lnum - 1]);
       const renderedPreviewHTML = bufferLine2Paragraph(
         content_["bufferLines"][lnum - 1],
         lnum - 1,
@@ -46,7 +41,6 @@ conn.onmessage = function (event) {
         `repeating-linear-gradient( to left, #333, #333 1px, transparent 1px, transparent ${
           height / charperline * 1.5
         }vh)`;
-      console.log(message["fontsize"]);
     } else if (isChanged === "cursor") {
       // カーソル位置に変更があった場合
       // cursorPositionに画面をスクロールする
