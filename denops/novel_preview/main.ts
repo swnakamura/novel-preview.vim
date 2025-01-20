@@ -53,9 +53,7 @@ class Server {
     const bufferLines = (await this.denops.eval("getline(1, '$')")) as Array<
       string
     >;
-    const curPos = (await this.denops.eval("getcursorcharpos()")) as Array<
-      number
-    >;
+    const curPos = (await this.denops.eval("getcursorcharpos()") as Array<number>).slice(0, 3); // 4番目はBigIntで使おうとするとエラーになるので除外
 
     if (this.previousContent === undefined) {
       // 初回評価では、全部の情報を送信して画面を全書き換えする
