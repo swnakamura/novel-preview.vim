@@ -40,8 +40,8 @@ conn.onmessage = function (event) {
       const height = message["settings"]["height"];
       document.getElementById("preview").style.height =
         message["settings"]["height"] + "%";
-      document.getElementById("preview").style.fontSize = height / charperline +
-        "vh";
+      document.getElementById("preview").style.fontSize = height / charperline + "vh";
+      document.getElementById("preview").style.lineHeight = 1.5 * height / charperline + "vh";
       document.getElementById("preview").style.backgroundImage =
         `repeating-linear-gradient( to left, #333, #333 1px, transparent 1px, transparent ${
           height / charperline * 1.5
